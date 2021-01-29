@@ -29,54 +29,51 @@ extract_help <- function(pkg, fn = NULL, to = c("txt", "html", "latex", "ex"))
 library(dplyr)
 library(tidyr)
 library(mlr)
+library(ggplot2)
 
 #' ## Load Pima.tr (training set) and Pima.te (test set)
 #' Load district data set
 #' Remember: these are found in the MASS package.
 #+ warning=FALSE, message=FALSE
-district_data = read.csv("district_data.csv")
+district_data = read.csv("~/myprojects/hivmachinelearning/district_hospital.csv")
 
 
 
-#' ## Let's look inside Pima.tr
+#' ## Let's look inside the District data file.
 str(district_data)
 
 
-#' ## Let's remind ourselves what the variables mean
-#+ echo=FALSE
-htmltools::HTML(extract_help('MASS','Pima.tr','html'))
 
-
-#' ## Can we predict which patients will develop diabetes?
+# Can we predict the patient outcomes
 #' Yes, but using which models?
 #' 
 
-#' ## Which models did we learn about last week?
+#' ## Which models may we use?
 #' - Decision trees
 #' - K-nearest neighbors
 #' - Support vector machine
 #' - Perceptron
 #' 
-#' ## This week, we will learn about 2 other models
+#' ## Including these other 2 models
 #' - Naive bayes
 #' - Logistic regression
 #'
-#' ## First, let's revisit decision trees and K-nearest neighbors
+#' ## First, let's start with decision trees and K-nearest neighbors
 #' - Decision trees are often developed by humans and serve as useful "rules of thumb" for classifying outcomes
 #' - But ... if decision trees had to be built by humans every time, that would be quite time-consuming
-#' - We can let the the machine build the decision tree for us
+#' - We can let the the machine build the decision tree for us. That's machine learning.
 #'
 #' ## But if we had to build a decision tree...
-#' Which variables do we think are going to be most important?
+#' Which variables do we think are going to be most important to predict our outcomes?
 #+ echo=FALSE
 #How do you decide which model to use?
 # Principal component analysis
 # Pair the dimensions that make sense
 # Usually start with a random forest
 #
-district_data %>%
-  select(Patient.ID,Current.Weight,Start.Reason,Current.Regimen,current.Outcome) %>% 
+district_data %>%  
   filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
+  dplyr::select(Current.Weight,Start.Reason,Current.Regimen,current.Outcome) %>%
   mutate(Current.Weight = cut(Current.Weight,5,include.lowest=TRUE)) %>% 
   gather(variable,value,Current.Weight:Current.Regimen) %>% 
 #  mutate(value=as.numeric(value)) %>% 
@@ -89,7 +86,7 @@ district_data %>%
 #' Which is the next best variable to differentiate the outcome?
 #+ echo = FALSE
 district_data %>%
-  select(Patient.ID,Start.Reason,Current.Regimen,current.Outcome) %>% 
+  dplyr::select(Start.Reason,Current.Regimen,current.Outcome) %>% 
   filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
   gather(variable,value,Start.Reason:Current.Regimen) %>% 
   ggplot(aes(x=value, fill=current.Outcome)) +
@@ -99,7 +96,7 @@ district_data %>%
 
 
 district_data %>%
-  select(Patient.ID,Current.Regimen,current.Outcome) %>% 
+  dplyr::select(Current.Regimen,current.Outcome) %>% 
   filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
   gather(variable,value,Current.Regimen) %>% 
   ggplot(aes(x=value, fill=current.Outcome)) +
@@ -107,7 +104,7 @@ district_data %>%
   scale_fill_brewer(palette = 'Set3')
 
 district_data %>%
-  select(Patient.ID,Current.Weight,current.Outcome) %>% 
+  dplyr::select(Current.Weight,current.Outcome) %>% 
   filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
   gather(variable,value,Current.Weight) %>% 
   ggplot(aes(x=value, fill=current.Outcome)) +
@@ -134,7 +131,7 @@ district_data %>%
 # train district data on death outcome with all the above variables
 # will attempt the 70% train data and the rest test data
 
- district_train = district_data %>% select(Current.Weight,Start.Reason,Current.Regimen,current.Outcome, Current.Age) %>% 
+ district_train = district_data %>% dplyr::select(Current.Weight,Start.Reason,Current.Regimen,current.Outcome, Current.Age) %>% 
    mutate_if(is.factor,as.character) %>% 
    filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
    mutate(current.Outcome = ifelse(current.Outcome=='Died','Died','On_ART')) %>% 
@@ -167,14 +164,11 @@ performance(predictions, measures = list(timepredict,acc,auc,f1,tpr,tnr))
 #' Awesome!!! Oh wait...
 #' 
 #' ## How well did the decision tree perform?
-predictions = predict(model,newdata=Pima.te)
-getConfMatrix(predictions)
-performance(predictions, measures = list(timepredict,acc,auc,f1))
 
 # fv = generateFilterValuesData(train_task,method='rf.min.depth')
 fv = generateFilterValuesData(train_task,method='chi.squared')
 fv
-fv$data %>% mutate(rf.min.depth=-rf.min.depth) %>% ggplot(aes(x=reorder(name,-rf.min.depth),y=rf.min.depth)) + geom_bar(stat='identity') + coord_flip()
+#fv$data %>% mutate(rf.min.depth=-rf.min.depth) %>% ggplot(aes(x=reorder(name,-rf.min.depth),y=rf.min.depth)) + geom_bar(stat='identity') + coord_flip()
 
 plotFilterValues(fv)
 
