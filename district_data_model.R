@@ -121,7 +121,8 @@ district_train = district_data %>% dplyr::select(Current.Weight,Start.Reason,Cur
    filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
    mutate(current.Outcome = ifelse(current.Outcome=='Died','Died','On_ART')) %>% 
    mutate_if(is.character,as.factor)
-   
+
+
    
 # %>% sample(nrow(district_data), 0.7*(district_data)) %>% district_data[.,]
 # 
@@ -129,14 +130,30 @@ district_train = district_data %>% dplyr::select(Current.Weight,Start.Reason,Cur
 #indices = sample()
 training_data = district_data %>% sample_frac(0.7)
 holdout_data = setdiff(district_data, training_data)
+
+holdout_data = holdout_data %>% dplyr::select(Current.Weight,Start.Reason,Current.Regimen,current.Outcome, Current.Age) %>% 
+  mutate_if(is.factor,as.character) %>% 
+  filter(current.Outcome == "Died" | current.Outcome =="On ART") %>% 
+  mutate(current.Outcome = ifelse(current.Outcome=='Died','Died','On_ART')) %>% 
+  mutate_if(is.character,as.factor)
+
   
 train_task = makeClassifTask(id = 'district_outcomes',
                              data = district_train,
                              target = 'current.Outcome',
                              positive = 'Died')
 #lrn = makeLearner('classif.randomForestSRC', predict.type = 'prob')
+
+#Task with holdout data
+holdout_task = makeClassifTask(id = 'district_outcomes_1',
+                             data = holdout_data,
+                             target = 'current.Outcome',
+                             positive = 'Died')
+
+
 lrn = makeLearner('classif.rpart', predict.type = 'prob')
 model = train(task = train_task, learner = lrn)
+validation = train(task = holdout_task, learner = lrn)
 
 #' ## Let's visualize the tree
 
@@ -144,8 +161,11 @@ rpart.plot(model$learner.model, tweak=0.8)
 
 #' ## How well did the decision tree perform?
 predictions = predict(model,newdata=district_train)
+validated_predictions = predict(validation,newdata=holdout_data)
 calculateConfusionMatrix(predictions)
 performance(predictions, measures = list(timepredict,acc,auc,f1,tpr,tnr))
+
+performance(validated_predictions, measures = list(timepredict,acc,auc,f1,tpr,tnr))
 
 #' Awesome!!! Oh wait...
 #' 
